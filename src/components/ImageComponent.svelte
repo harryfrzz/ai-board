@@ -142,13 +142,13 @@
   <img 
     src={obj.data.src} 
     alt="Add Image"
-    class="w-full h-full object-cover"
+    class="w-full h-full object-cover text-transparent"
     on:error={handleImageError}
     draggable="false"
   />
 
   <!-- Hover Controls -->
-  <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+  <div class="absolute top-2 right-2 flex gap-2">
     <button
       class="p-1.5 bg-white rounded shadow-md hover:bg-gray-100 z-10"
       on:mousedown={handleDragStart}
@@ -168,10 +168,10 @@
   <!-- Click to upload if placeholder -->
   {#if obj.data.src.includes('placeholder')}
     <button
-      class="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity text-white font-medium"
+      class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-6 py-3 bg-white/90 hover:bg-white rounded-lg shadow-lg text-gray-700 font-medium"
       on:click={openFileDialog}
     >
-      Click to upload image
+      Add Image
     </button>
   {/if}
 

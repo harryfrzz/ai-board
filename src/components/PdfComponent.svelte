@@ -176,12 +176,10 @@
     </button>
   </div>
 
-  <!-- Selection indicator -->
   {#if obj.selected}
     <div class="absolute inset-0 border-4 border-purple-500 pointer-events-none rounded-lg"></div>
   {/if}
 
-  <!-- File name label -->
   {#if obj.data.fileName}
     <div class="absolute bottom-2 left-2 px-2 py-1 bg-white/90 rounded shadow text-xs font-medium text-gray-700">
       {obj.data.fileName}

@@ -1,10 +1,12 @@
 <script lang="ts">
   import { currentTool } from '$lib/toolStore';
   import { canvasObjects, addObject, selectObject, deselectAll } from '$lib/canvasStore';
+  import { currentDrawingTool, currentDrawingColor, isDrawing, currentStroke, toolWidths, type DrawingStroke } from '$lib/drawingStore';
   import ImageComponent from './ImageComponent.svelte';
   import PdfComponent from './PdfComponent.svelte';
   import AudioComponent from './AudioComponent.svelte';
   import LinkComponent from './LinkComponent.svelte';
+  import DrawingComponent from './DrawingComponent.svelte';
 
   let container: HTMLDivElement;
   
@@ -17,15 +19,42 @@
   // Grid settings
   const gridSize = 80;
 
+  // Drawing state
+  let activeDrawingId: string | null = null;
+  let tempStrokes: DrawingStroke[] = [];
+
   function handleMouseDown(e: MouseEvent) {
     const target = e.target as HTMLElement;
     
-    // Check if clicking on an existing object
-    if (target.closest('.canvas-object')) {
+    // Check if clicking on an existing object (but not for drawing tool)
+    if (target.closest('.canvas-object') && $currentTool !== 'draw') {
       return; // Let the object handle its own interactions
     }
 
-    if ($currentTool === 'pan') {
+    if ($currentTool === 'draw') {
+      // Start drawing
+      const rect = container.getBoundingClientRect();
+      const worldX = (e.clientX - rect.left - pan.x) / zoom;
+      const worldY = (e.clientY - rect.top - pan.y) / zoom;
+      
+      isDrawing.set(true);
+      currentStroke.set([{ x: worldX, y: worldY }]);
+      
+      // Find or create drawing object
+      const existingDrawing = $canvasObjects.find(obj => obj.type === 'drawing');
+      if (existingDrawing) {
+        activeDrawingId = existingDrawing.id;
+      } else {
+        activeDrawingId = addObject({
+          type: 'drawing',
+          x: 0,
+          y: 0,
+          width: 10000,
+          height: 10000,
+          data: { strokes: [] }
+        });
+      }
+    } else if ($currentTool === 'pan') {
       isDragging = true;
       lastMouse = { x: e.clientX, y: e.clientY };
     } else if ($currentTool === 'image') {
@@ -71,7 +100,6 @@
         data: { url: 'sample.mp3' }
       });
     } else if ($currentTool === 'link') {
-      // Add link at click position
       const rect = container.getBoundingClientRect();
       const worldX = (e.clientX - rect.left - pan.x) / zoom;
       const worldY = (e.clientY - rect.top - pan.y) / zoom;
@@ -88,18 +116,52 @@
   }
 
   function handleMouseMove(e: MouseEvent) {
-    if (!isDragging || $currentTool !== 'pan') return;
+    if ($currentTool === 'draw' && $isDrawing) {
+      // Continue drawing
+      const rect = container.getBoundingClientRect();
+      const worldX = (e.clientX - rect.left - pan.x) / zoom;
+      const worldY = (e.clientY - rect.top - pan.y) / zoom;
+      
+      currentStroke.update(points => [...points, { x: worldX, y: worldY }]);
+    } else if (isDragging && $currentTool === 'pan') {
+      const deltaX = e.clientX - lastMouse.x;
+      const deltaY = e.clientY - lastMouse.y;
 
-    const deltaX = e.clientX - lastMouse.x;
-    const deltaY = e.clientY - lastMouse.y;
+      pan.x += deltaX;
+      pan.y += deltaY;
 
-    pan.x += deltaX;
-    pan.y += deltaY;
-
-    lastMouse = { x: e.clientX, y: e.clientY };
+      lastMouse = { x: e.clientX, y: e.clientY };
+    }
   }
 
   function handleMouseUp() {
+    if ($currentTool === 'draw' && $isDrawing && activeDrawingId && $currentStroke.length > 0) {
+      // Finish drawing stroke
+      const stroke: DrawingStroke = {
+        id: crypto.randomUUID(),
+        points: [...$currentStroke],
+        color: $currentDrawingColor,
+        tool: $currentDrawingTool,
+        width: toolWidths[$currentDrawingTool]
+      };
+      
+      // Update the drawing object with the new stroke
+      canvasObjects.update(objects =>
+        objects.map(obj => {
+          if (obj.id === activeDrawingId) {
+            const currentStrokes = obj.data.strokes || [];
+            return {
+              ...obj,
+              data: { strokes: [...currentStrokes, stroke] }
+            };
+          }
+          return obj;
+        })
+      );
+      
+      isDrawing.set(false);
+      currentStroke.set([]);
+    }
     isDragging = false;
   }
 
@@ -125,7 +187,8 @@
 
   $: cursorClass = $currentTool === 'pan' 
     ? (isDragging ? 'cursor-grabbing' : 'cursor-grab')
-    : ($currentTool === 'image' || $currentTool === 'pdf' || $currentTool === 'audio' ? 'cursor-crosshair' : 'cursor-default');
+    : ($currentTool === 'draw' ? 'cursor-crosshair' 
+    : ($currentTool === 'image' || $currentTool === 'pdf' || $currentTool === 'audio' ? 'cursor-crosshair' : 'cursor-default'));
 </script>
 
 <div
@@ -165,6 +228,7 @@
     {#each $canvasObjects as obj (obj.id)}
       <div
         class="canvas-object absolute"
+        class:pointer-events-none={obj.type === 'drawing'}
         style="left: {obj.x}px; top: {obj.y}px; width: {obj.width}px; height: {obj.height}px;"
       >
         {#if obj.type === 'image'}
@@ -175,9 +239,25 @@
           <AudioComponent {obj} />
         {:else if obj.type === 'link'}
           <LinkComponent {obj} />
+        {:else if obj.type === 'drawing'}
+          <DrawingComponent {obj} />
         {/if}
       </div>
     {/each}
+
+    <!-- Current drawing stroke (preview) -->
+    {#if $isDrawing && $currentStroke.length > 0}
+      <svg class="absolute inset-0 pointer-events-none" style="width: 10000px; height: 10000px; overflow: visible;">
+        <path
+          d={$currentStroke.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')}
+          stroke={$currentDrawingColor}
+          stroke-width={toolWidths[$currentDrawingTool]}
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"
+        />
+      </svg>
+    {/if}
   </div>
 </div>
 
