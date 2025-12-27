@@ -3,6 +3,8 @@
   import { canvasObjects, addObject, selectObject, deselectAll } from '$lib/canvasStore';
   import ImageComponent from './ImageComponent.svelte';
   import PdfComponent from './PdfComponent.svelte';
+  import AudioComponent from './AudioComponent.svelte';
+  import LinkComponent from './LinkComponent.svelte';
 
   let container: HTMLDivElement;
   
@@ -54,6 +56,34 @@
         height: 500,
         data: { url: 'sample.pdf' }
       });
+    } else if ($currentTool === 'audio') {
+      // Add audio at click position
+      const rect = container.getBoundingClientRect();
+      const worldX = (e.clientX - rect.left - pan.x) / zoom;
+      const worldY = (e.clientY - rect.top - pan.y) / zoom;
+      
+      addObject({
+        type: 'audio',
+        x: worldX,
+        y: worldY,
+        width: 350,
+        height: 150,
+        data: { url: 'sample.mp3' }
+      });
+    } else if ($currentTool === 'link') {
+      // Add link at click position
+      const rect = container.getBoundingClientRect();
+      const worldX = (e.clientX - rect.left - pan.x) / zoom;
+      const worldY = (e.clientY - rect.top - pan.y) / zoom;
+      
+      addObject({
+        type: 'link',
+        x: worldX,
+        y: worldY,
+        width: 400,
+        height: 280,
+        data: { url: '' }
+      });
     }
   }
 
@@ -95,7 +125,7 @@
 
   $: cursorClass = $currentTool === 'pan' 
     ? (isDragging ? 'cursor-grabbing' : 'cursor-grab')
-    : ($currentTool === 'image' || $currentTool === 'pdf' ? 'cursor-crosshair' : 'cursor-default');
+    : ($currentTool === 'image' || $currentTool === 'pdf' || $currentTool === 'audio' ? 'cursor-crosshair' : 'cursor-default');
 </script>
 
 <div
@@ -141,6 +171,10 @@
           <ImageComponent {obj} />
         {:else if obj.type === 'pdf'}
           <PdfComponent {obj} />
+        {:else if obj.type === 'audio'}
+          <AudioComponent {obj} />
+        {:else if obj.type === 'link'}
+          <LinkComponent {obj} />
         {/if}
       </div>
     {/each}

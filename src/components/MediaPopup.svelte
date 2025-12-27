@@ -1,6 +1,6 @@
 <script lang="ts">
     import { currentTool, type Tool } from "$lib/toolStore";
-    import { Image, FileText, Headphones } from "lucide-svelte";
+    import { Image, FileText, Headphones, Link } from "lucide-svelte";
 
     let { popUpOpen }: { popUpOpen: boolean } = $props()
     function selectTool(tool: Tool) {
@@ -13,5 +13,6 @@
     <button class="hover:bg-green-200 rounded-md transition-colors w-full p-2 flex justify-center items-center" class:bg-green-300={$currentTool === 'image'} onclick={() => selectTool('image')}><Image/></button>
     <button class="hover:bg-green-200 rounded-md transition-colors w-full p-2 flex justify-center items-center" class:bg-green-300={$currentTool === 'pdf'} onclick={() => selectTool('pdf')}><FileText/></button>
     <button class="hover:bg-green-200 rounded-md transition-colors w-full p-2 flex justify-center items-center" class:bg-green-300={$currentTool === 'audio'} onclick={() => selectTool('audio')}><Headphones/></button>
+    <button class="hover:bg-green-200 rounded-md transition-colors w-full p-2 flex justify-center items-center" class:bg-green-300={$currentTool === 'link'} onclick={() => selectTool('link')}><Link/></button>
 </div>
 {/if}

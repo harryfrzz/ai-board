@@ -1,8 +1,10 @@
 import { writable } from 'svelte/store';
 
+export type CanvasObjectType = 'text' | 'shape' | 'image' | 'pdf' | 'audio' | 'video' | 'link';
+
 export interface CanvasObject {
   id: string;
-  type: 'image' | 'pdf' | 'audio' | 'video' | 'text' | 'shape';
+  type: CanvasObjectType;
   x: number;
   y: number;
   width: number;

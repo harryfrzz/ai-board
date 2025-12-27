@@ -8,7 +8,8 @@
   let isDragging = false;
   let dragOffset = { x: 0, y: 0 };
   let isResizing = false;
-  let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
+  let resizeStart = { x: 0, y: 0, width: 0, height: 0, objX: 0, objY: 0 };
+  let resizeCorner: 'se' | 'sw' | 'ne' | 'nw' | null = null;
 
   function handleDragStart(e: MouseEvent) {
     e.stopPropagation();
@@ -59,11 +60,81 @@
     };
     input.click();
   }
+
+  function handleResizeStart(e: MouseEvent, corner: 'se' | 'sw' | 'ne' | 'nw') {
+    e.stopPropagation();
+    isResizing = true;
+    resizeCorner = corner;
+    resizeStart = {
+      x: e.clientX,
+      y: e.clientY,
+      width: obj.width,
+      height: obj.height,
+      objX: obj.x,
+      objY: obj.y
+    };
+  }
+
+  function handleResize(e: MouseEvent) {
+    if (!isResizing || !resizeCorner) return;
+
+    const deltaX = e.clientX - resizeStart.x;
+    const deltaY = e.clientY - resizeStart.y;
+    
+    let newWidth = resizeStart.width;
+    let newHeight = resizeStart.height;
+    let newX = obj.x;
+    let newY = obj.y;
+
+    if (resizeCorner === 'se') {
+      newWidth = Math.max(100, resizeStart.width + deltaX);
+      newHeight = Math.max(100, resizeStart.height + deltaY);
+    } else if (resizeCorner === 'sw') {
+      newWidth = Math.max(100, resizeStart.width - deltaX);
+      newHeight = Math.max(100, resizeStart.height + deltaY);
+      if (newWidth !== resizeStart.width) {
+        newX = resizeStart.objX + (resizeStart.width - newWidth);
+      }
+    } else if (resizeCorner === 'ne') {
+      newWidth = Math.max(100, resizeStart.width + deltaX);
+      newHeight = Math.max(100, resizeStart.height - deltaY);
+      if (newHeight !== resizeStart.height) {
+        newY = resizeStart.objY + (resizeStart.height - newHeight);
+      }
+    } else if (resizeCorner === 'nw') {
+      newWidth = Math.max(100, resizeStart.width - deltaX);
+      newHeight = Math.max(100, resizeStart.height - deltaY);
+      if (newWidth !== resizeStart.width) {
+        newX = resizeStart.objX + (resizeStart.width - newWidth);
+      }
+      if (newHeight !== resizeStart.height) {
+        newY = resizeStart.objY + (resizeStart.height - newHeight);
+      }
+    }
+
+    updateObject(obj.id, {
+      width: newWidth,
+      height: newHeight,
+      x: newX,
+      y: newY
+    });
+  }
+
+  function handleResizeEnd() {
+    isResizing = false;
+    resizeCorner = null;
+  }
 </script>
 
 <svelte:window
-  on:mousemove={handleDrag}
-  on:mouseup={handleDragEnd}
+  on:mousemove={(e) => {
+    handleDrag(e);
+    handleResize(e);
+  }}
+  on:mouseup={() => {
+    handleDragEnd();
+    handleResizeEnd();
+  }}
 />
 
 <div class="relative w-full h-full group bg-white rounded-lg shadow-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-colors">
@@ -108,6 +179,16 @@
   {#if obj.selected}
     <div class="absolute inset-0 border-4 border-blue-500 pointer-events-none rounded-lg"></div>
   {/if}
+
+  <!-- Resize handles -->
+  <div class="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 rounded-full cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity"
+       on:mousedown={(e) => handleResizeStart(e, 'se')}></div>
+  <div class="absolute -bottom-2 -left-2 w-4 h-4 bg-blue-500 rounded-full cursor-sw-resize opacity-0 group-hover:opacity-100 transition-opacity"
+       on:mousedown={(e) => handleResizeStart(e, 'sw')}></div>
+  <div class="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full cursor-ne-resize opacity-0 group-hover:opacity-100 transition-opacity"
+       on:mousedown={(e) => handleResizeStart(e, 'ne')}></div>
+  <div class="absolute -top-2 -left-2 w-4 h-4 bg-blue-500 rounded-full cursor-nw-resize opacity-0 group-hover:opacity-100 transition-opacity"
+       on:mousedown={(e) => handleResizeStart(e, 'nw')}></div>
 </div>
 
 <style>
