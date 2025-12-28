@@ -10,6 +10,17 @@
     import { currentTool, type Tool } from "$lib/toolStore";
     import MediaPopup from "./MediaPopup.svelte";
 
+
+
+    const mediaTools = ['media', 'image', 'audio', 'link', 'pdf'];
+    const tools: Array<{ id: Tool; icon: any; label: string }> = [
+        { id: 'pan', icon: Hand, label: 'Grab' },
+        { id: 'select', icon: MousePointerClickIcon, label: 'Select' },
+        { id: 'draw', icon: PencilLine, label: 'Draw' },
+        { id: 'text', icon: CaseSensitive, label: 'Text' },
+        { id: 'shape', icon: Shapes, label: 'Shapes' },
+    ];
+
     let popUpOpen = $state(false)
     function selectTool(tool: Tool) {
         currentTool.set(tool);
@@ -19,18 +30,10 @@
     }
     
     $effect(() => {
-        if ($currentTool != 'media') {
+        if (!mediaTools.includes($currentTool)) {
             popUpOpen = false;
         }
     });
-    
-    const tools: Array<{ id: Tool; icon: any; label: string }> = [
-        { id: 'pan', icon: Hand, label: 'Grab' },
-        { id: 'select', icon: MousePointerClickIcon, label: 'Select' },
-        { id: 'draw', icon: PencilLine, label: 'Draw' },
-        { id: 'text', icon: CaseSensitive, label: 'Text' },
-        { id: 'shape', icon: Shapes, label: 'Shapes' },
-    ];
 
 </script>
 

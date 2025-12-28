@@ -1,4 +1,7 @@
 <script lang="ts">
+
+  // TODO
+  // Have to fix Pan tool issue of getting buttons clicked
   import { currentTool } from '$lib/toolStore';
   import { canvasObjects, addObject, selectObject, deselectAll } from '$lib/canvasStore';
   import { currentDrawingTool, currentDrawingColor, isDrawing, currentStroke, toolWidths, type DrawingStroke } from '$lib/drawingStore';
@@ -26,8 +29,7 @@
   function handleMouseDown(e: MouseEvent) {
     const target = e.target as HTMLElement;
     
-    // Check if clicking on an existing object (but not for drawing tool)
-    if (target.closest('.canvas-object') && $currentTool !== 'draw') {
+    if (target.closest('.canvas-object') && $currentTool !== 'draw' && $currentTool !== 'pan') {
       return; // Let the object handle its own interactions
     }
 
