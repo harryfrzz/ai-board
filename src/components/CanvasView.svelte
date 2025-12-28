@@ -26,6 +26,19 @@
   let activeDrawingId: string | null = null;
   let tempStrokes: DrawingStroke[] = [];
 
+  // UUID generator fallback
+  function generateUUID(): string {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    // Fallback UUID v4 generator
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
   function handleMouseDown(e: MouseEvent) {
     const target = e.target as HTMLElement;
     
@@ -137,34 +150,46 @@
   }
 
   function handleMouseUp() {
-    if ($currentTool === 'draw' && $isDrawing && activeDrawingId && $currentStroke.length > 0) {
-      // Finish drawing stroke
-      const stroke: DrawingStroke = {
-        id: crypto.randomUUID(),
-        points: [...$currentStroke],
-        color: $currentDrawingColor,
-        tool: $currentDrawingTool,
-        width: toolWidths[$currentDrawingTool]
-      };
+    if ($currentTool === 'draw' && $isDrawing) {
+      if (activeDrawingId && $currentStroke.length > 0) {
+        // Finish drawing stroke
+        const stroke: DrawingStroke = {
+          id: generateUUID(),
+          points: [...$currentStroke],
+          color: $currentDrawingColor,
+          tool: $currentDrawingTool,
+          width: toolWidths[$currentDrawingTool]
+        };
+        
+        console.log('Saving stroke (mouse):', stroke);
+        
+        // Update the drawing object with the new stroke
+        canvasObjects.update(objects => {
+          const updated = objects.map(obj => {
+            if (obj.id === activeDrawingId) {
+              const currentStrokes = obj.data.strokes || [];
+              const newStrokes = [...currentStrokes, stroke];
+              console.log('Updated strokes count:', newStrokes.length);
+              return {
+                ...obj,
+                data: { strokes: newStrokes }
+              };
+            }
+            return obj;
+          });
+          console.log('Canvas objects after update:', updated);
+          return updated;
+        });
+      }
       
-      // Update the drawing object with the new stroke
-      canvasObjects.update(objects =>
-        objects.map(obj => {
-          if (obj.id === activeDrawingId) {
-            const currentStrokes = obj.data.strokes || [];
-            return {
-              ...obj,
-              data: { strokes: [...currentStrokes, stroke] }
-            };
-          }
-          return obj;
-        })
-      );
-      
+      // Always reset drawing state on mouse up
       isDrawing.set(false);
       currentStroke.set([]);
     }
-    isDragging = false;
+    
+    if (isDragging) {
+      isDragging = false;
+    }
   }
 
   function handleWheel(e: WheelEvent) {
@@ -187,6 +212,111 @@
     zoom = newZoom;
   }
 
+  // Touch event handlers for mobile support
+  function handleTouchStart(e: TouchEvent) {
+    if (e.touches.length !== 1) return;
+    
+    const touch = e.touches[0];
+    const target = e.target as HTMLElement;
+    
+    if (target.closest('.canvas-object') && $currentTool !== 'draw' && $currentTool !== 'pan') {
+      return;
+    }
+
+    if ($currentTool === 'draw') {
+      e.preventDefault();
+      const rect = container.getBoundingClientRect();
+      const worldX = (touch.clientX - rect.left - pan.x) / zoom;
+      const worldY = (touch.clientY - rect.top - pan.y) / zoom;
+      
+      isDrawing.set(true);
+      currentStroke.set([{ x: worldX, y: worldY }]);
+      
+      const existingDrawing = $canvasObjects.find(obj => obj.type === 'drawing');
+      if (existingDrawing) {
+        activeDrawingId = existingDrawing.id;
+      } else {
+        activeDrawingId = addObject({
+          type: 'drawing',
+          x: 0,
+          y: 0,
+          width: 10000,
+          height: 10000,
+          data: { strokes: [] }
+        });
+      }
+    } else if ($currentTool === 'pan') {
+      e.preventDefault();
+      isDragging = true;
+      lastMouse = { x: touch.clientX, y: touch.clientY };
+    }
+  }
+
+  function handleTouchMove(e: TouchEvent) {
+    if (e.touches.length !== 1) return;
+    
+    const touch = e.touches[0];
+
+    if ($currentTool === 'draw' && $isDrawing) {
+      e.preventDefault();
+      const rect = container.getBoundingClientRect();
+      const worldX = (touch.clientX - rect.left - pan.x) / zoom;
+      const worldY = (touch.clientY - rect.top - pan.y) / zoom;
+      
+      currentStroke.update(points => [...points, { x: worldX, y: worldY }]);
+    } else if (isDragging && $currentTool === 'pan') {
+      e.preventDefault();
+      const deltaX = touch.clientX - lastMouse.x;
+      const deltaY = touch.clientY - lastMouse.y;
+
+      pan.x += deltaX;
+      pan.y += deltaY;
+
+      lastMouse = { x: touch.clientX, y: touch.clientY };
+    }
+  }
+
+  function handleTouchEnd(e: TouchEvent) {
+    if ($currentTool === 'draw' && $isDrawing) {
+      e.preventDefault();
+      if (activeDrawingId && $currentStroke.length > 0) {
+        const stroke: DrawingStroke = {
+          id: generateUUID(),
+          points: [...$currentStroke],
+          color: $currentDrawingColor,
+          tool: $currentDrawingTool,
+          width: toolWidths[$currentDrawingTool]
+        };
+        
+        console.log('Saving stroke:', stroke);
+        
+        canvasObjects.update(objects => {
+          const updated = objects.map(obj => {
+            if (obj.id === activeDrawingId) {
+              const currentStrokes = obj.data.strokes || [];
+              const newStrokes = [...currentStrokes, stroke];
+              console.log('Updated strokes count:', newStrokes.length);
+              return {
+                ...obj,
+                data: { strokes: newStrokes }
+              };
+            }
+            return obj;
+          });
+          console.log('Canvas objects after update:', updated);
+          return updated;
+        });
+      }
+      
+      isDrawing.set(false);
+      currentStroke.set([]);
+    }
+    
+    if (isDragging) {
+      isDragging = false;
+    }
+  }
+
   $: cursorClass = $currentTool === 'pan' 
     ? (isDragging ? 'cursor-grabbing' : 'cursor-grab')
     : ($currentTool === 'draw' ? 'cursor-crosshair' 
@@ -201,6 +331,10 @@
   onmouseup={handleMouseUp}
   onmouseleave={handleMouseUp}
   onwheel={handleWheel}
+  ontouchstart={handleTouchStart}
+  ontouchmove={handleTouchMove}
+  ontouchend={handleTouchEnd}
+  ontouchcancel={handleTouchEnd}
   style="background-color: #F7F7F7;"
 >
   <!-- Grid Layer -->

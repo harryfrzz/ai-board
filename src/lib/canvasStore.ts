@@ -1,4 +1,6 @@
 import { writable } from 'svelte/store';
+import { browser } from '$app/environment';
+import { v4 as uuidv4 } from 'uuid';
 
 export type CanvasObjectType = 'text' | 'shape' | 'image' | 'pdf' | 'audio' | 'video' | 'link' | 'drawing';
 
@@ -13,12 +15,23 @@ export interface CanvasObject {
   selected?: boolean;
 }
 
-export const canvasObjects = writable<CanvasObject[]>([]);
+const storedObjects = browser ? localStorage.getItem('canvasObjects') : null;
+const initialObjects: CanvasObject[] = storedObjects ? JSON.parse(storedObjects) : [];
+
+export const canvasObjects = writable<CanvasObject[]>(initialObjects);
+
+// Save to localStorage whenever the store changes
+if (browser) {
+  canvasObjects.subscribe(value => {
+    console.log('Saving to localStorage:', value);
+    localStorage.setItem('canvasObjects', JSON.stringify(value));
+  });
+}
 
 export function addObject(obj: Omit<CanvasObject, 'id'>) {
   const newObj: CanvasObject = {
     ...obj,
-    id: crypto.randomUUID(),
+    id: uuidv4(),
   };
   canvasObjects.update(objects => [...objects, newObj]);
   return newObj.id;
